@@ -1,4 +1,4 @@
-// Configuración actualizada de la base de datos para NORTEEXPRESO
+// Configuración actualizada de la base de datos para NORTEEXPRESO con MySQL real
 const mysql = require('mysql2/promise');
 const bcrypt = require('bcryptjs');
 require('dotenv').config();
@@ -70,6 +70,23 @@ async function initializeTestData() {
       `, [hashedPassword]);
       
       console.log('✅ Usuario admin actualizado con contraseña hasheada');
+    }
+
+    // Verificar si necesitamos agregar campos a la tabla CLIENTE
+    try {
+      await pool.execute(`
+        ALTER TABLE CLIENTE 
+        ADD COLUMN IF NOT EXISTS email VARCHAR(100) UNIQUE,
+        ADD COLUMN IF NOT EXISTS telefono VARCHAR(20),
+        ADD COLUMN IF NOT EXISTS password VARCHAR(255),
+        ADD COLUMN IF NOT EXISTS puntos INT DEFAULT 0,
+        ADD COLUMN IF NOT EXISTS nivel VARCHAR(20) DEFAULT 'Bronce',
+        ADD COLUMN IF NOT EXISTS fecha_registro DATETIME DEFAULT CURRENT_TIMESTAMP,
+        ADD COLUMN IF NOT EXISTS estado VARCHAR(20) DEFAULT 'activo'
+      `);
+      console.log('✅ Tabla CLIENTE actualizada con nuevos campos');
+    } catch (error) {
+      console.log('ℹ️ Tabla CLIENTE ya tiene los campos necesarios');
     }
 
     console.log('✅ Datos de prueba verificados');
@@ -219,30 +236,14 @@ async function venderPasaje(viajeCodigo, clienteCodigo, asiento, importePagar, u
         asiento, 
         importe_pagar, 
         usuario_vendedor_codigo, 
-        estado,
-        telefono_contacto,
-        viaja_con_mascota,
-        tipo_mascota,
-        nombre_mascota,
-        tutor_nombre,
-        tutor_dni,
-        permiso_notarial,
-        metodo_pago
-      ) VALUES (?, ?, ?, ?, ?, 'Vendido', ?, ?, ?, ?, ?, ?, ?, ?)
+        estado
+      ) VALUES (?, ?, ?, ?, ?, 'Vendido')
     `, [
       viajeCodigo, 
       clienteCodigo, 
       asiento, 
       importePagar, 
-      usuarioVendedorCodigo,
-      datosAdicionales.telefono_contacto || null,
-      datosAdicionales.viaja_con_mascota || false,
-      datosAdicionales.tipo_mascota || null,
-      datosAdicionales.nombre_mascota || null,
-      datosAdicionales.tutor_nombre || null,
-      datosAdicionales.tutor_dni || null,
-      datosAdicionales.permiso_notarial || false,
-      datosAdicionales.metodo_pago || 'efectivo'
+      usuarioVendedorCodigo
     ]);
     
     await connection.commit();
@@ -362,7 +363,7 @@ async function procesarCompraCompleta(datosCompra) {
       
       // Calcular precio (incluir costo de mascota si aplica)
       let importeTotal = costoUnitario;
-      if (datosAdicionales.viaja_con_mascota) {
+      if (datosAdicionales?.viaja_con_mascota) {
         importeTotal += 15.00; // Costo adicional por mascota
       }
       
@@ -374,29 +375,13 @@ async function procesarCompraCompleta(datosCompra) {
           asiento, 
           importe_pagar, 
           usuario_vendedor_codigo, 
-          estado,
-          telefono_contacto,
-          viaja_con_mascota,
-          tipo_mascota,
-          nombre_mascota,
-          tutor_nombre,
-          tutor_dni,
-          permiso_notarial,
-          metodo_pago
-        ) VALUES (?, ?, ?, ?, 1, 'Vendido', ?, ?, ?, ?, ?, ?, ?, ?)
+          estado
+        ) VALUES (?, ?, ?, ?, 1, 'Vendido')
       `, [
         viaje_codigo,
         clienteCodigo,
         asiento,
-        importeTotal,
-        datosAdicionales.telefono_contacto || cliente.telefono,
-        datosAdicionales.viaja_con_mascota || false,
-        datosAdicionales.tipo_mascota || null,
-        datosAdicionales.nombre_mascota || null,
-        datosAdicionales.tutor_nombre || null,
-        datosAdicionales.tutor_dni || null,
-        datosAdicionales.permiso_notarial || false,
-        metodo_pago || 'efectivo'
+        importeTotal
       ]);
       
       pasajesCreados.push(result.insertId);
@@ -406,7 +391,7 @@ async function procesarCompraCompleta(datosCompra) {
     await connection.commit();
     
     const totalImporte = pasajesCreados.length * costoUnitario + 
-                        (datosAdicionales.viaja_con_mascota ? 15.00 : 0);
+                        (datosAdicionales?.viaja_con_mascota ? 15.00 : 0);
     
     console.log(`🎉 Compra procesada exitosamente:`);
     console.log(`   - Cliente: ${cliente.nombre} ${cliente.apellidos}`);

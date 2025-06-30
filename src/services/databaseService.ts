@@ -1,4 +1,4 @@
-// Servicio para operaciones de base de datos - Actualizado
+// Servicio para conectar con la base de datos MySQL real
 export interface PasajeData {
   viaje_codigo: number;
   cliente: {
@@ -10,7 +10,7 @@ export interface PasajeData {
   };
   asientos: number[];
   metodo_pago: string;
-  telefono_contacto: string;
+  telefono_contacto?: string;
   viaja_con_mascota?: boolean;
   tipo_mascota?: string;
   nombre_mascota?: string;
@@ -20,214 +20,200 @@ export interface PasajeData {
   permiso_notarial?: boolean;
 }
 
-export interface ViajeData {
-  ruta_codigo: number;
-  bus_codigo: number;
-  chofer_codigo: number;
-  fecha_hora_salida: string;
-  fecha_hora_llegada_estimada: string;
+export interface RegistroClienteData {
+  nombre: string;
+  apellidos: string;
+  dni: string;
+  telefono: string;
+  email: string;
+  password: string;
+}
+
+export interface RegistroAdminData {
+  nombre: string;
+  apellidos: string;
+  dni: string;
+  telefono: string;
+  email: string;
+  direccion: string;
+  usuario: string;
+  password: string;
+  cargo_codigo: number;
 }
 
 class DatabaseService {
   private baseUrl = 'http://localhost:3001/api';
 
+  // Método para obtener asientos ocupados desde la base de datos real
+  async obtenerAsientosOcupados(viajeId: number): Promise<number[]> {
+    try {
+      const response = await fetch(`${this.baseUrl}/viajes/${viajeId}/asientos`);
+      if (response.ok) {
+        const asientos = await response.json();
+        return asientos;
+      }
+      return [];
+    } catch (error) {
+      console.error('Error obteniendo asientos ocupados:', error);
+      return [];
+    }
+  }
+
+  // Método para guardar pasaje en la base de datos real
   async guardarPasaje(pasajeData: PasajeData): Promise<{ success: boolean; pasajes?: number[]; error?: string }> {
     try {
-      console.log('🛒 Enviando datos de compra al servidor:', pasajeData);
-
-      // Preparar datos para el nuevo endpoint
-      const datosCompra = {
-        viaje_codigo: pasajeData.viaje_codigo,
-        cliente: pasajeData.cliente,
-        asientos: pasajeData.asientos,
-        metodo_pago: pasajeData.metodo_pago,
-        datosAdicionales: {
-          telefono_contacto: pasajeData.telefono_contacto,
-          viaja_con_mascota: pasajeData.viaja_con_mascota,
-          tipo_mascota: pasajeData.tipo_mascota,
-          nombre_mascota: pasajeData.nombre_mascota,
-          peso_mascota: pasajeData.peso_mascota,
-          tutor_nombre: pasajeData.tutor_nombre,
-          tutor_dni: pasajeData.tutor_dni,
-          permiso_notarial: pasajeData.permiso_notarial,
-          metodo_pago: pasajeData.metodo_pago
-        }
-      };
-
+      console.log('Guardando pasaje en base de datos:', pasajeData);
+      
       const response = await fetch(`${this.baseUrl}/pasajes/compra-completa`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
         },
-        body: JSON.stringify(datosCompra)
-      });
-
-      const result = await response.json();
-
-      if (response.ok && result.success) {
-        console.log('✅ Compra procesada exitosamente:', result);
-        return { 
-          success: true, 
-          pasajes: result.data.pasajes 
-        };
-      } else {
-        console.error('❌ Error en la respuesta del servidor:', result);
-        return { 
-          success: false, 
-          error: result.error || 'Error al procesar la compra' 
-        };
-      }
-    } catch (error) {
-      console.error('❌ Error de conexión:', error);
-      return { 
-        success: false, 
-        error: 'Error de conexión con el servidor. Verifica que el servidor esté ejecutándose.' 
-      };
-    }
-  }
-
-  async obtenerViajes(filtros: {
-    origen: string;
-    destino: string;
-    fecha: string;
-  }): Promise<any[]> {
-    try {
-      const params = new URLSearchParams({
-        origen: filtros.origen,
-        destino: filtros.destino,
-        fecha: filtros.fecha
-      });
-
-      console.log(`🔍 Buscando viajes: ${filtros.origen} → ${filtros.destino} el ${filtros.fecha}`);
-
-      const response = await fetch(`${this.baseUrl}/viajes/buscar?${params}`);
-      
-      if (response.ok) {
-        const viajes = await response.json();
-        console.log(`✅ ${viajes.length} viajes encontrados`);
-        return viajes;
-      } else {
-        console.error('❌ Error obteniendo viajes:', response.statusText);
-        return [];
-      }
-    } catch (error) {
-      console.error('❌ Error de conexión obteniendo viajes:', error);
-      return [];
-    }
-  }
-
-  async obtenerAsientosOcupados(viajeId: number): Promise<number[]> {
-    try {
-      console.log(`🪑 Obteniendo asientos ocupados para viaje ${viajeId}`);
-      
-      const response = await fetch(`${this.baseUrl}/viajes/${viajeId}/asientos`);
-      
-      if (response.ok) {
-        const asientos = await response.json();
-        console.log(`✅ ${asientos.length} asientos ocupados: [${asientos.join(', ')}]`);
-        return asientos;
-      } else {
-        console.error('❌ Error obteniendo asientos:', response.statusText);
-        return [];
-      }
-    } catch (error) {
-      console.error('❌ Error de conexión obteniendo asientos:', error);
-      return [];
-    }
-  }
-
-  async obtenerRutas(): Promise<any[]> {
-    try {
-      console.log('📍 Obteniendo rutas disponibles...');
-      
-      const response = await fetch(`${this.baseUrl}/rutas`);
-      
-      if (response.ok) {
-        const rutas = await response.json();
-        console.log(`✅ ${rutas.length} rutas encontradas`);
-        return rutas;
-      } else {
-        console.error('❌ Error obteniendo rutas:', response.statusText);
-        return [];
-      }
-    } catch (error) {
-      console.error('❌ Error de conexión obteniendo rutas:', error);
-      return [];
-    }
-  }
-
-  async registrarCliente(clienteData: {
-    nombre: string;
-    apellidos: string;
-    dni: string;
-    telefono?: string;
-    email?: string;
-  }): Promise<{ success: boolean; clienteId?: number; error?: string }> {
-    try {
-      console.log('👤 Registrando cliente:', clienteData);
-
-      const response = await fetch(`${this.baseUrl}/clientes`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(clienteData)
+        body: JSON.stringify({
+          viaje_codigo: pasajeData.viaje_codigo,
+          cliente: pasajeData.cliente,
+          asientos: pasajeData.asientos,
+          metodo_pago: pasajeData.metodo_pago,
+          datosAdicionales: {
+            telefono_contacto: pasajeData.telefono_contacto,
+            viaja_con_mascota: pasajeData.viaja_con_mascota,
+            tipo_mascota: pasajeData.tipo_mascota,
+            nombre_mascota: pasajeData.nombre_mascota,
+            peso_mascota: pasajeData.peso_mascota,
+            tutor_nombre: pasajeData.tutor_nombre,
+            tutor_dni: pasajeData.tutor_dni,
+            permiso_notarial: pasajeData.permiso_notarial
+          }
+        })
       });
 
       if (response.ok) {
         const result = await response.json();
-        console.log('✅ Cliente registrado exitosamente:', result);
-        return { success: true, clienteId: result.clienteId };
+        return {
+          success: true,
+          pasajes: result.data?.pasajes || []
+        };
       } else {
-        const error = await response.json();
-        console.error('❌ Error registrando cliente:', error);
-        return { success: false, error: error.message || 'Error al registrar cliente' };
+        const errorData = await response.json();
+        return {
+          success: false,
+          error: errorData.error || 'Error al guardar el pasaje'
+        };
       }
     } catch (error) {
-      console.error('❌ Error de conexión registrando cliente:', error);
-      return { success: false, error: 'Error de conexión con el servidor' };
+      console.error('Error guardando pasaje:', error);
+      return {
+        success: false,
+        error: 'Error de conexión con el servidor'
+      };
     }
   }
 
-  async obtenerEstadisticas(): Promise<any> {
+  // Método para buscar viajes en la base de datos real
+  async buscarViajes(origen: string, destino: string, fecha: string) {
     try {
-      const token = localStorage.getItem('norteexpreso_token');
-      const response = await fetch(`${this.baseUrl}/dashboard/estadisticas`, {
+      const response = await fetch(`${this.baseUrl}/viajes/buscar?origen=${encodeURIComponent(origen)}&destino=${encodeURIComponent(destino)}&fecha=${fecha}`);
+      if (response.ok) {
+        return await response.json();
+      }
+      return [];
+    } catch (error) {
+      console.error('Error buscando viajes:', error);
+      return [];
+    }
+  }
+
+  // Método para registrar cliente
+  async registrarCliente(clienteData: RegistroClienteData): Promise<{ success: boolean; error?: string; cliente?: any }> {
+    try {
+      const response = await fetch(`${this.baseUrl}/auth/register-cliente`, {
+        method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`
-        }
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(clienteData)
       });
+
+      const result = await response.json();
       
       if (response.ok) {
-        const estadisticas = await response.json();
-        return estadisticas;
+        return {
+          success: true,
+          cliente: result.cliente
+        };
       } else {
-        console.error('❌ Error obteniendo estadísticas:', response.statusText);
-        return null;
+        return {
+          success: false,
+          error: result.error || 'Error al registrar cliente'
+        };
       }
     } catch (error) {
-      console.error('❌ Error de conexión obteniendo estadísticas:', error);
+      console.error('Error registrando cliente:', error);
+      return {
+        success: false,
+        error: 'Error de conexión con el servidor'
+      };
+    }
+  }
+
+  // Método para registrar administrador
+  async registrarAdmin(adminData: RegistroAdminData): Promise<{ success: boolean; error?: string; admin?: any }> {
+    try {
+      const response = await fetch(`${this.baseUrl}/auth/register-admin`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(adminData)
+      });
+
+      const result = await response.json();
+      
+      if (response.ok) {
+        return {
+          success: true,
+          admin: result.admin
+        };
+      } else {
+        return {
+          success: false,
+          error: result.error || 'Error al registrar administrador'
+        };
+      }
+    } catch (error) {
+      console.error('Error registrando administrador:', error);
+      return {
+        success: false,
+        error: 'Error de conexión con el servidor'
+      };
+    }
+  }
+
+  // Método para obtener estadísticas reales
+  async obtenerEstadisticas() {
+    try {
+      const response = await fetch(`${this.baseUrl}/dashboard/estadisticas`);
+      if (response.ok) {
+        return await response.json();
+      }
+      return null;
+    } catch (error) {
+      console.error('Error obteniendo estadísticas:', error);
       return null;
     }
   }
 
-  // Método para probar la conexión con el servidor
-  async probarConexion(): Promise<boolean> {
+  // Método para obtener rutas reales
+  async obtenerRutas() {
     try {
-      console.log('🔗 Probando conexión con el servidor...');
-      
       const response = await fetch(`${this.baseUrl}/rutas`);
-      
       if (response.ok) {
-        console.log('✅ Conexión con el servidor exitosa');
-        return true;
-      } else {
-        console.error('❌ Error de conexión con el servidor:', response.status);
-        return false;
+        return await response.json();
       }
+      return [];
     } catch (error) {
-      console.error('❌ No se pudo conectar con el servidor:', error);
-      return false;
+      console.error('Error obteniendo rutas:', error);
+      return [];
     }
   }
 }

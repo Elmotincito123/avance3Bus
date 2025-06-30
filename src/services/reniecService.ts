@@ -1,4 +1,4 @@
-// Servicio para integración con RENIEC - API actualizada
+// Servicio para integración con RENIEC - API actualizada con género corregido
 export interface ReniecData {
   dni: string;
   nombres: string;
@@ -50,13 +50,25 @@ class ReniecService {
           // Mapear la respuesta de la API al formato esperado
           if (data.success && data.data) {
             const personData = data.data;
+            
+            // Corregir el mapeo del género
+            let sexo: 'M' | 'F' = 'M';
+            if (personData.sexo) {
+              const sexoStr = personData.sexo.toString().toUpperCase();
+              if (sexoStr === 'FEMENINO' || sexoStr === 'F' || sexoStr === 'MUJER') {
+                sexo = 'F';
+              } else if (sexoStr === 'MASCULINO' || sexoStr === 'M' || sexoStr === 'HOMBRE') {
+                sexo = 'M';
+              }
+            }
+            
             return {
               dni: personData.numero || dni,
               nombres: personData.nombres || '',
               apellidoPaterno: personData.apellido_paterno || '',
               apellidoMaterno: personData.apellido_materno || '',
               fechaNacimiento: personData.fecha_nacimiento || '',
-              sexo: personData.sexo === 'MASCULINO' ? 'M' : 'F',
+              sexo: sexo,
               estadoCivil: personData.estado_civil || '',
               ubigeo: personData.ubigeo || '',
               direccion: personData.direccion || ''

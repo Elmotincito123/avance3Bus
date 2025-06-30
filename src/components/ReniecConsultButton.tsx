@@ -66,7 +66,7 @@ export function ReniecConsultButton({
     if (loading) return <Loader className="h-4 w-4 animate-spin" />;
     if (status === 'success') return <CheckCircle className="h-4 w-4" />;
     if (status === 'error') return <AlertCircle className="h-4 w-4" />;
-    return <Database className="h-4 w-4" />;
+    return <Search className="h-4 w-4" />;
   };
 
   return (
@@ -88,7 +88,7 @@ export function ReniecConsultButton({
         <span>
           {loading ? 'Consultando...' : 
            status === 'success' ? 'Consultado' :
-           status === 'error' ? 'Error' : 'RENIEC'}
+           status === 'error' ? 'Error' : 'Buscar'}
         </span>
       </button>
       
