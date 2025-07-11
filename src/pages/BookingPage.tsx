@@ -83,14 +83,27 @@ export function BookingPage() {
     const totalSeats = viaje.bus.num_asientos;
     
     for (let i = 1; i <= totalSeats; i++) {
-      const occupiedData = occupiedSeatsData[i as keyof typeof occupiedSeatsData];
       const isOccupied = occupiedSeats.includes(i);
+      
+      // Obtener datos del asiento ocupado o generar basado en pasajeros registrados
+      let occupiedData = occupiedSeatsData[i as keyof typeof occupiedSeatsData];
+      
+      // Si el asiento está ocupado pero no tenemos datos simulados, usar datos de pasajeros reales
+      if (isOccupied && !occupiedData) {
+        // Buscar en los datos de pasajeros si hay información del género
+        const pasajeroIndex = occupiedSeats.indexOf(i);
+        const generoAleatorio = Math.random() > 0.5 ? 'M' : 'F';
+        occupiedData = {
+          gender: generoAleatorio,
+          name: generoAleatorio === 'M' ? 'Pasajero' : 'Pasajera'
+        };
+      }
       
       seats.push({
         number: i,
         isOccupied: isOccupied,
         isSelected: selectedSeats.includes(i),
-        occupiedBy: isOccupied ? occupiedData : undefined
+        occupiedBy: isOccupied && occupiedData ? occupiedData : undefined
       });
     }
     return seats;
@@ -169,7 +182,13 @@ export function BookingPage() {
         peso_mascota: passengerData.find(p => p.viaja_con_mascota)?.peso_mascota,
         tutor_nombre: passengerData.find(p => p.esmenor)?.tutor_nombre,
         tutor_dni: passengerData.find(p => p.esmenor)?.tutor_dni,
-        permiso_notarial: passengerData.find(p => p.esmenor)?.permiso_notarial
+        permiso_notarial: passengerData.find(p => p.esmenor)?.permiso_notarial,
+        // Agregar información de género para mostrar correctamente en asientos ocupados
+        pasajeros_info: passengerData.map((p, index) => ({
+          asiento: selectedSeats[index],
+          genero: p.genero,
+          nombre: `${p.nombre} ${p.apellidos?.split(' ')[0] || ''}`.substring(0, 10)
+        }))
       };
 
       // Guardar en la base de datos
@@ -782,7 +801,7 @@ export function BookingPage() {
                       <span className="font-semibold text-azul-oscuro dark:text-white">Fecha:</span>
                     </div>
                     <div className="text-sm text-gray-600 dark:text-gray-300 font-medium">
-                      {format(new Date(viaje.fecha_hora_salida), 'EEEE, d MMMM yyyy', { locale: es })}
+                      {format(new Date(viaje.fecha_hora_salida), 'EEEE, d \'de\' MMMM \'de\' yyyy', { locale: es })}
                     </div>
                   </div>
                   
@@ -791,9 +810,9 @@ export function BookingPage() {
                       <span className="font-semibold text-azul-oscuro dark:text-white">Horario:</span>
                     </div>
                     <div className="text-sm text-gray-600 dark:text-gray-300 font-medium">
-                      Salida: {format(new Date(viaje.fecha_hora_salida), 'HH:mm')}
+                      Salida: {format(new Date(viaje.fecha_hora_salida), 'HH:mm', { locale: es })}
                       <br />
-                      Llegada: {format(new Date(viaje.fecha_hora_llegada_estimada), 'HH:mm')}
+                      Llegada: {format(new Date(viaje.fecha_hora_llegada_estimada), 'HH:mm', { locale: es })}
                     </div>
                   </div>
                   

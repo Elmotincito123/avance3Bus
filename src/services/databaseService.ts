@@ -18,6 +18,11 @@ export interface PasajeData {
   tutor_nombre?: string;
   tutor_dni?: string;
   permiso_notarial?: boolean;
+  pasajeros_info?: Array<{
+    asiento: number;
+    genero: 'M' | 'F';
+    nombre: string;
+  }>;
 }
 
 export interface RegistroClienteData {

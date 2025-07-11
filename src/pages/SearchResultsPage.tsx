@@ -168,7 +168,8 @@ export function SearchResultsPage() {
   };
 
   const formatTime = (datetime: string) => {
-    return format(new Date(datetime), 'HH:mm', { locale: es });
+    const date = new Date(datetime);
+    return format(date, 'HH:mm', { locale: es });
   };
 
   const formatDuration = (salida: string, llegada: string) => {

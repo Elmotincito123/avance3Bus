@@ -13,8 +13,8 @@ const JWT_SECRET = process.env.JWT_SECRET || 'norteexpreso_secret_key';
 // Configuración de la base de datos
 const dbConfig = {
   host: process.env.DB_HOST || 'localhost',
-  user: process.env.DB_USER || 'norteexpreso',
-  password: process.env.DB_PASSWORD || 'claveSegura123',
+  user: process.env.DB_USER || 'root',
+  password: process.env.DB_PASSWORD || 'Bdvargas2005',
   database: process.env.DB_NAME || 'transporte_db',
   port: process.env.DB_PORT || 3306,
   charset: 'utf8mb4',
@@ -221,6 +221,22 @@ app.post('/api/auth/register-cliente', async (req, res) => {
     const { nombre, apellidos, dni, telefono, email, password } = req.body;
     console.log(`📝 Registrando nuevo cliente: ${email}`);
     
+    // Validar datos requeridos
+    if (!nombre || !apellidos || !dni || !email || !password) {
+      return res.status(400).json({ error: 'Todos los campos son requeridos' });
+    }
+    
+    // Validar formato de DNI
+    if (!/^\d{8}$/.test(dni)) {
+      return res.status(400).json({ error: 'DNI debe tener 8 dígitos' });
+    }
+    
+    // Validar formato de email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ error: 'Email no válido' });
+    }
+    
     await connection.beginTransaction();
     
     // Verificar si ya existe el DNI o email
@@ -229,17 +245,18 @@ app.post('/api/auth/register-cliente', async (req, res) => {
       [dni]
     );
     
-    const [existingCliente] = await connection.execute(
-      'SELECT codigo FROM CLIENTE WHERE email = ?',
-      [email]
-    );
-    
     if (existingPersona.length > 0) {
       await connection.rollback();
       return res.status(400).json({ error: 'Ya existe una persona con este DNI' });
     }
     
-    if (existingCliente.length > 0) {
+    // Verificar email en empleados también
+    const [existingEmail] = await connection.execute(
+      'SELECT codigo FROM EMPLEADO WHERE email = ?',
+      [email]
+    );
+    
+    if (existingEmail.length > 0) {
       await connection.rollback();
       return res.status(400).json({ error: 'Ya existe un cliente con este email' });
     }
@@ -255,9 +272,30 @@ app.post('/api/auth/register-cliente', async (req, res) => {
     
     const personaCodigo = personaResult.insertId;
     
-    // Insertar cliente
+    // Insertar cliente con campos adicionales
     await connection.execute(`
-      INSERT INTO CLIENTE (codigo, email, telefono, password, puntos, nivel, fecha_registro, estado) 
+      INSERT INTO CLIENTE (codigo, razon_social, ruc) 
+      VALUES (?, NULL, NULL)
+    `, [personaCodigo]);
+    
+    // Crear tabla de clientes extendida si no existe
+    await connection.execute(`
+      CREATE TABLE IF NOT EXISTS CLIENTE_EXTRA (
+        codigo INT PRIMARY KEY,
+        email VARCHAR(100) UNIQUE,
+        telefono VARCHAR(20),
+        password VARCHAR(255),
+        puntos INT DEFAULT 0,
+        nivel VARCHAR(20) DEFAULT 'Bronce',
+        fecha_registro DATETIME DEFAULT CURRENT_TIMESTAMP,
+        estado VARCHAR(20) DEFAULT 'activo',
+        FOREIGN KEY (codigo) REFERENCES CLIENTE(codigo) ON DELETE CASCADE
+      )
+    `);
+    
+    // Insertar datos adicionales del cliente
+    await connection.execute(`
+      INSERT INTO CLIENTE_EXTRA (codigo, email, telefono, password, puntos, nivel, fecha_registro, estado) 
       VALUES (?, ?, ?, ?, 0, 'Bronce', NOW(), 'activo')
     `, [personaCodigo, email, telefono, hashedPassword]);
     
@@ -281,7 +319,17 @@ app.post('/api/auth/register-cliente', async (req, res) => {
   } catch (error) {
     await connection.rollback();
     console.error('❌ Error registrando cliente:', error);
-    res.status(500).json({ error: 'Error interno del servidor' });
+    
+    // Manejar errores específicos
+    if (error.code === 'ER_DUP_ENTRY') {
+      if (error.message.includes('dni')) {
+        return res.status(400).json({ error: 'Ya existe una persona con este DNI' });
+      } else if (error.message.includes('email')) {
+        return res.status(400).json({ error: 'Ya existe un usuario con este email' });
+      }
+    }
+    
+    res.status(500).json({ error: 'Error interno del servidor: ' + error.message });
   } finally {
     connection.release();
   }
@@ -294,6 +342,22 @@ app.post('/api/auth/register-admin', async (req, res) => {
   try {
     const { nombre, apellidos, dni, telefono, email, direccion, usuario, password, cargo_codigo } = req.body;
     console.log(`📝 Registrando nuevo administrador: ${usuario}`);
+    
+    // Validar datos requeridos
+    if (!nombre || !apellidos || !dni || !email || !direccion || !usuario || !password) {
+      return res.status(400).json({ error: 'Todos los campos son requeridos' });
+    }
+    
+    // Validar formato de DNI
+    if (!/^\d{8}$/.test(dni)) {
+      return res.status(400).json({ error: 'DNI debe tener 8 dígitos' });
+    }
+    
+    // Validar formato de email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ error: 'Email no válido' });
+    }
     
     await connection.beginTransaction();
     
@@ -351,7 +415,7 @@ app.post('/api/auth/register-admin', async (req, res) => {
     await connection.execute(`
       INSERT INTO EMPLEADO (codigo, direccion, telefono, email, contrato_codigo, cargo_codigo) 
       VALUES (?, ?, ?, ?, ?, ?)
-    `, [personaCodigo, direccion, telefono, email, contratoCodigo, cargo_codigo]);
+    `, [personaCodigo, direccion, telefono, email, contratoCodigo, cargo_codigo || 1]);
     
     // Insertar usuario
     await connection.execute(`
@@ -379,7 +443,19 @@ app.post('/api/auth/register-admin', async (req, res) => {
   } catch (error) {
     await connection.rollback();
     console.error('❌ Error registrando administrador:', error);
-    res.status(500).json({ error: 'Error interno del servidor' });
+    
+    // Manejar errores específicos
+    if (error.code === 'ER_DUP_ENTRY') {
+      if (error.message.includes('dni')) {
+        return res.status(400).json({ error: 'Ya existe una persona con este DNI' });
+      } else if (error.message.includes('email')) {
+        return res.status(400).json({ error: 'Ya existe un empleado con este email' });
+      } else if (error.message.includes('usuario')) {
+        return res.status(400).json({ error: 'Ya existe un usuario con este nombre' });
+      }
+    }
+    
+    res.status(500).json({ error: 'Error interno del servidor: ' + error.message });
   } finally {
     connection.release();
   }
